@@ -43,18 +43,161 @@
   
   <!-- Memory Manager (inlined) -->
   <script>
-// Memory Manager for Performa Tracker
-// Add this to your settings page to manage app memory usage
+// Memory Manager for Performa Tracker - ENHANCED VERSION WITH LEAK FIXES
+// Comprehensive memory management with cleanup tracking
 
 class MemoryManager {
   constructor() {
     this.memoryData = null;
+    this.timers = new Set(); // Track all timers
+    this.intervals = new Set(); // Track all intervals
+    this.eventListeners = new Map(); // Track event listeners
+    this.voiceRecognizers = new Set(); // Track voice recognition instances
+    this.audioContexts = new Set(); // Track audio contexts
+    this.domCache = new Map(); // Cache DOM elements
     this.init();
   }
 
   init() {
     this.createMemoryUI();
     this.loadMemoryUsage();
+    this.setupGlobalCleanup();
+    this.patchTimerMethods();
+  }
+
+  // Patch timer methods to track them
+  patchTimerMethods() {
+    const originalSetTimeout = window.setTimeout;
+    const originalClearTimeout = window.clearTimeout;
+    const originalSetInterval = window.setInterval;
+    const originalClearInterval = window.clearInterval;
+
+    window.setTimeout = (callback, delay, ...args) => {
+      const id = originalSetTimeout(callback, delay, ...args);
+      this.timers.add(id);
+      return id;
+    };
+
+    window.clearTimeout = (id) => {
+      this.timers.delete(id);
+      return originalClearTimeout(id);
+    };
+
+    window.setInterval = (callback, delay, ...args) => {
+      const id = originalSetInterval(callback, delay, ...args);
+      this.intervals.add(id);
+      return id;
+    };
+
+    window.clearInterval = (id) => {
+      this.intervals.delete(id);
+      return originalClearInterval(id);
+    };
+  }
+
+  // Setup global cleanup handlers
+  setupGlobalCleanup() {
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      this.performCompleteCleanup();
+    });
+
+    // Cleanup on visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.performPartialCleanup();
+      }
+    });
+
+    // Global error handlers
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      event.preventDefault();
+    });
+  }
+
+  // Perform complete cleanup
+  performCompleteCleanup() {
+    console.log('Performing complete memory cleanup...');
+    
+    // Clear all timers
+    this.timers.forEach(id => clearTimeout(id));
+    this.intervals.forEach(id => clearInterval(id));
+    this.timers.clear();
+    this.intervals.clear();
+
+    // Stop all voice recognizers
+    this.voiceRecognizers.forEach(recognizer => {
+      try {
+        recognizer.stop();
+        recognizer.abort();
+      } catch (e) {
+        console.warn('Error stopping voice recognizer:', e);
+      }
+    });
+    this.voiceRecognizers.clear();
+
+    // Close all audio contexts
+    this.audioContexts.forEach(context => {
+      try {
+        context.close();
+      } catch (e) {
+        console.warn('Error closing audio context:', e);
+      }
+    });
+    this.audioContexts.clear();
+
+    // Clear DOM cache
+    this.domCache.clear();
+  }
+
+  // Perform partial cleanup
+  performPartialCleanup() {
+    // Stop voice recognition when tab is hidden
+    this.voiceRecognizers.forEach(recognizer => {
+      try {
+        recognizer.stop();
+      } catch (e) {
+        console.warn('Error stopping voice recognizer:', e);
+      }
+    });
+
+    // Suspend audio contexts
+    this.audioContexts.forEach(context => {
+      try {
+        if (context.state === 'running') {
+          context.suspend();
+        }
+      } catch (e) {
+        console.warn('Error suspending audio context:', e);
+      }
+    });
+  }
+
+  // Register voice recognizer for cleanup
+  registerVoiceRecognizer(recognizer) {
+    this.voiceRecognizers.add(recognizer);
+  }
+
+  // Register audio context for cleanup
+  registerAudioContext(context) {
+    this.audioContexts.add(context);
+  }
+
+  // Get cached DOM element
+  getCachedElement(id) {
+    if (this.domCache.has(id)) {
+      return this.domCache.get(id);
+    }
+    const element = document.getElementById(id);
+    if (element) {
+      this.domCache.set(id, element);
+    }
+    return element;
   }
 
   // Create the memory management UI
@@ -11055,7 +11198,7 @@ function renderProgressChart(type = "total", from = null, to = null, exerciseNam
     });
   };
 }
-// Voice recognition
+// Voice recognition with proper cleanup
 function startVoiceRecognition() {
   if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
     alert("Your browser does not support speech recognition");
@@ -11069,6 +11212,11 @@ function startVoiceRecognition() {
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognizer = new SpeechRecognition();
+  
+  // Register for cleanup
+  if (window.memoryManager) {
+    window.memoryManager.registerVoiceRecognizer(recognizer);
+  }
   recognizer.continuous = true;
   recognizer.interimResults = false;
   recognizer.lang = "en-US";
@@ -11080,6 +11228,12 @@ function startVoiceRecognition() {
     // Play a subtle, short beep that won't interfere with voice feedback
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Register audio context for cleanup
+      if (window.memoryManager) {
+        window.memoryManager.registerAudioContext(audioContext);
+      }
+      
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -11092,6 +11246,18 @@ function startVoiceRecognition() {
       
       oscillator.start();
       oscillator.stop(audioContext.currentTime + 0.1); // Very short duration
+      
+      // Clean up audio context after use
+      setTimeout(() => {
+        try {
+          audioContext.close();
+          if (window.memoryManager) {
+            window.memoryManager.audioContexts.delete(audioContext);
+          }
+        } catch (e) {
+          console.warn('Error closing audio context:', e);
+        }
+      }, 200);
     } catch (error) {
       console.log('Audio context not available for beep');
     }
@@ -11134,11 +11300,11 @@ function startVoiceRecognition() {
         }
       } else if (transcript.includes(commands.setActualReps)) {
         const repsValue = transcript.split(commands.setActualReps)[1].trim();
-        const actualField = document.getElementById('actualValue');
-        if (actualField) {
-          actualField.value = repsValue;
-          speakFeedback(`${commands.setActualRepsFeedback} ${repsValue}`);
-        }
+          const actualField = window.getElement('actualValue');
+  if (actualField) {
+    actualField.value = repsValue;
+    speakFeedback(`${commands.setActualRepsFeedback} ${repsValue}`);
+  }
       } else if (transcript.includes(commands.showProgress)) {
         showProgressView();
         speakFeedback(`${commands.navigationFeedback} progress view`);
@@ -11225,6 +11391,14 @@ function stopVoiceRecognition() {
   if (recognizer) {
     try {
       recognizer.stop();
+      recognizer.abort(); // Ensure complete cleanup
+      
+      // Unregister from memory manager
+      if (window.memoryManager) {
+        window.memoryManager.voiceRecognizers.delete(recognizer);
+      }
+      
+      recognizer = null; // Clear reference
     } catch (err) {
       console.error('Error stopping speech recognition:', err);
     }
@@ -11234,8 +11408,8 @@ function stopVoiceRecognition() {
 }
 
 function updateVoiceStatus(text, state) {
-  const indicator = document.getElementById("voiceIndicator");
-  const statusText = document.getElementById("voiceStatusText");
+  const indicator = window.getElement("voiceIndicator");
+  const statusText = window.getElement("voiceStatusText");
   
   if (!indicator || !statusText) return;
   
@@ -12836,7 +13010,16 @@ class PerformaStorageManager {
 // Make storage manager globally available
 window.PerformaStorage = PerformaStorageManager;
 
+// Initialize memory manager for leak prevention
+window.memoryManager = new MemoryManager();
+
+// Utility function to get cached DOM elements
+window.getElement = (id) => {
+  return window.memoryManager ? window.memoryManager.getCachedElement(id) : document.getElementById(id);
+};
+
 console.log('💾 Enhanced data persistence system initialized');
+console.log('🧹 Memory management system initialized - leak prevention active');
 
 </script>
 </body>
