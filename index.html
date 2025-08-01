@@ -43,22 +43,166 @@
   
   <!-- Memory Manager (inlined) -->
   <script>
-// Memory Manager for Performa Tracker
-// Add this to your settings page to manage app memory usage
+// Memory Manager for Performa Tracker - ENHANCED VERSION WITH LEAK FIXES
+// Comprehensive memory management with cleanup tracking
 
 class MemoryManager {
   constructor() {
     this.memoryData = null;
+    this.timers = new Set(); // Track all timers
+    this.intervals = new Set(); // Track all intervals
+    this.eventListeners = new Map(); // Track event listeners
+    this.voiceRecognizers = new Set(); // Track voice recognition instances
+    this.audioContexts = new Set(); // Track audio contexts
+    this.domCache = new Map(); // Cache DOM elements
     this.init();
   }
 
   init() {
     this.createMemoryUI();
     this.loadMemoryUsage();
+    this.setupGlobalCleanup();
+    this.patchTimerMethods();
+  }
+
+  // Patch timer methods to track them
+  patchTimerMethods() {
+    const originalSetTimeout = window.setTimeout;
+    const originalClearTimeout = window.clearTimeout;
+    const originalSetInterval = window.setInterval;
+    const originalClearInterval = window.clearInterval;
+
+    window.setTimeout = (callback, delay, ...args) => {
+      const id = originalSetTimeout(callback, delay, ...args);
+      this.timers.add(id);
+      return id;
+    };
+
+    window.clearTimeout = (id) => {
+      this.timers.delete(id);
+      return originalClearTimeout(id);
+    };
+
+    window.setInterval = (callback, delay, ...args) => {
+      const id = originalSetInterval(callback, delay, ...args);
+      this.intervals.add(id);
+      return id;
+    };
+
+    window.clearInterval = (id) => {
+      this.intervals.delete(id);
+      return originalClearInterval(id);
+    };
+  }
+
+  // Setup global cleanup handlers
+  setupGlobalCleanup() {
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      this.performCompleteCleanup();
+    });
+
+    // Cleanup on visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.performPartialCleanup();
+      }
+    });
+
+    // Global error handlers
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      event.preventDefault();
+    });
+  }
+
+  // Perform complete cleanup
+  performCompleteCleanup() {
+    console.log('Performing complete memory cleanup...');
+    
+    // Clear all timers
+    this.timers.forEach(id => clearTimeout(id));
+    this.intervals.forEach(id => clearInterval(id));
+    this.timers.clear();
+    this.intervals.clear();
+
+    // Stop all voice recognizers
+    this.voiceRecognizers.forEach(recognizer => {
+      try {
+        recognizer.stop();
+        recognizer.abort();
+      } catch (e) {
+        console.warn('Error stopping voice recognizer:', e);
+      }
+    });
+    this.voiceRecognizers.clear();
+
+    // Close all audio contexts
+    this.audioContexts.forEach(context => {
+      try {
+        context.close();
+      } catch (e) {
+        console.warn('Error closing audio context:', e);
+      }
+    });
+    this.audioContexts.clear();
+
+    // Clear DOM cache
+    this.domCache.clear();
+  }
+
+  // Perform partial cleanup
+  performPartialCleanup() {
+    // Stop voice recognition when tab is hidden
+    this.voiceRecognizers.forEach(recognizer => {
+      try {
+        recognizer.stop();
+      } catch (e) {
+        console.warn('Error stopping voice recognizer:', e);
+      }
+    });
+
+    // Suspend audio contexts
+    this.audioContexts.forEach(context => {
+      try {
+        if (context.state === 'running') {
+          context.suspend();
+        }
+      } catch (e) {
+        console.warn('Error suspending audio context:', e);
+      }
+    });
+  }
+
+  // Register voice recognizer for cleanup
+  registerVoiceRecognizer(recognizer) {
+    this.voiceRecognizers.add(recognizer);
+  }
+
+  // Register audio context for cleanup
+  registerAudioContext(context) {
+    this.audioContexts.add(context);
+  }
+
+  // Get cached DOM element
+  getCachedElement(id) {
+    if (this.domCache.has(id)) {
+      return this.domCache.get(id);
+    }
+    const element = document.getElementById(id);
+    if (element) {
+      this.domCache.set(id, element);
+    }
+    return element;
   }
 
   // Create the memory management UI
   createMemoryUI() {
+    console.log('🔧 Creating Memory Management UI...');
     const memorySection = document.createElement('div');
     memorySection.className = 'memory-management-section';
     memorySection.innerHTML = `
@@ -70,6 +214,10 @@ class MemoryManager {
           <div class="memory-total">
             <span class="memory-label">Total App Size:</span>
             <span id="totalMemoryUsage" class="memory-value">Calculating...</span>
+          </div>
+          <div class="memory-quota">
+            <span class="memory-label">Available Storage:</span>
+            <span id="storageQuota" class="memory-value">Checking...</span>
           </div>
           <div id="memoryProgressBar" class="memory-progress-bar">
             <div class="memory-progress-fill"></div>
@@ -181,10 +329,13 @@ class MemoryManager {
     this.addMemoryStyles();
 
     // Find settings container and add memory section
-    const settingsContainer = document.querySelector('.settings-content') || document.querySelector('#settingsContent');
+    const settingsContainer = document.querySelector('#settingsView') || document.querySelector('.settings-content') || document.querySelector('#settingsContent');
     if (settingsContainer) {
       settingsContainer.appendChild(memorySection);
       this.bindEvents();
+      console.log('✅ Memory Management section added to settings');
+    } else {
+      console.error('❌ Settings container not found');
     }
   }
 
@@ -198,6 +349,9 @@ class MemoryManager {
       .memory-management-section {
         margin: 20px 0;
         padding: 20px;
+        width: 100%;
+        max-width: none;
+        box-sizing: border-box;
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 12px;
         border: 1px solid #e1e8ed;
@@ -211,11 +365,18 @@ class MemoryManager {
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
 
-      .memory-total {
+      .memory-total, .memory-quota {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 15px;
+      }
+
+      .memory-quota {
+        padding-top: 10px;
+        border-top: 1px solid #e0e0e0;
+        font-size: 0.9em;
+        color: #666;
       }
 
       .memory-label {
@@ -532,27 +693,14 @@ class MemoryManager {
     }
   }
 
-  // Load memory usage from service worker
+  // Load memory usage from actual app data
   async loadMemoryUsage() {
     try {
-      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
-        this.showMemoryError('Service worker not available');
-        return;
-      }
-
-      const channel = new MessageChannel();
+      console.log('📊 Calculating actual app memory usage...');
       
-      channel.port1.onmessage = (event) => {
-        if (event.data.type === 'MEMORY_USAGE') {
-          this.displayMemoryUsage(event.data.data);
-        } else if (event.data.type === 'MEMORY_USAGE_ERROR') {
-          this.showMemoryError(event.data.error);
-        }
-      };
-
-      navigator.serviceWorker.controller.postMessage({
-        type: 'GET_MEMORY_USAGE'
-      }, [channel.port2]);
+      // Calculate real app data usage
+      const usage = await this.calculateAppDataUsage();
+      await this.displayMemoryUsage(usage);
 
     } catch (error) {
       console.error('Failed to load memory usage:', error);
@@ -560,16 +708,206 @@ class MemoryManager {
     }
   }
 
+  // Calculate actual app data usage
+  async calculateAppDataUsage() {
+    const usage = {
+      total: 0,
+      breakdown: {},
+      recommendations: []
+    };
+
+    try {
+      // Get localStorage usage
+      const localStorageSize = this.calculateLocalStorageSize();
+      usage.total += localStorageSize;
+      
+      if (localStorageSize > 0) {
+        usage.breakdown['App Settings & Data'] = {
+          size: localStorageSize,
+          count: Object.keys(localStorage).length
+        };
+      }
+
+      // Get actual exercise entries
+      const entries = this.getExerciseEntries();
+      const entriesSize = new Blob([JSON.stringify(entries)]).size;
+      usage.total += entriesSize;
+      
+      if (entries.length > 0) {
+        usage.breakdown['Exercise Entries'] = {
+          size: entriesSize,
+          count: entries.length
+        };
+      }
+
+      // Get mastered entries
+      const masteredEntries = this.getMasteredEntries();
+      const masteredSize = new Blob([JSON.stringify(masteredEntries)]).size;
+      usage.total += masteredSize;
+      
+      if (masteredEntries.length > 0) {
+        usage.breakdown['Mastered Exercises'] = {
+          size: masteredSize,
+          count: masteredEntries.length
+        };
+      }
+
+      // Get ideals data
+      const idealsData = this.getIdealsData();
+      const idealsSize = new Blob([JSON.stringify(idealsData)]).size;
+      usage.total += idealsSize;
+      
+      if (Object.keys(idealsData).length > 0) {
+        usage.breakdown['Ideal Standards'] = {
+          size: idealsSize,
+          count: Object.keys(idealsData).length
+        };
+      }
+
+      // Only include cache data if it actually exists
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        try {
+          const cacheSize = await this.getCacheSize();
+          if (cacheSize > 0) {
+            usage.total += cacheSize;
+            usage.breakdown['Offline Cache'] = {
+              size: cacheSize,
+              count: 1
+            };
+          }
+        } catch (e) {
+          console.log('Cache not available or empty');
+        }
+      }
+
+      usage.totalFormatted = this.formatBytes(usage.total);
+      
+      // Generate recommendations
+      usage.recommendations = this.generateRecommendations(usage);
+
+      console.log('📊 App data usage calculated:', usage);
+      return usage;
+
+    } catch (error) {
+      console.error('Error calculating app data usage:', error);
+      return {
+        total: 0,
+        totalFormatted: '0 Bytes',
+        breakdown: {},
+        recommendations: []
+      };
+    }
+  }
+
+  // Calculate localStorage size
+  calculateLocalStorageSize() {
+    let total = 0;
+    for (let key in localStorage) {
+      if (localStorage.hasOwnProperty(key)) {
+        total += localStorage[key].length + key.length;
+      }
+    }
+    return total * 2; // UTF-16 encoding
+  }
+
+  // Get exercise entries
+  getExerciseEntries() {
+    try {
+      return JSON.parse(localStorage.getItem('exerciseEntries') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Get mastered entries
+  getMasteredEntries() {
+    try {
+      return JSON.parse(localStorage.getItem('masteredEntries') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Get ideals data
+  getIdealsData() {
+    try {
+      const ideals = {};
+      for (let key in localStorage) {
+        if (key.startsWith('ideal_')) {
+          ideals[key] = localStorage[key];
+        }
+      }
+      return ideals;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  // Get cache size (simplified)
+  async getCacheSize() {
+    try {
+      if (!('caches' in window)) return 0;
+      
+      const cacheNames = await caches.keys();
+      let totalSize = 0;
+      
+      for (const cacheName of cacheNames) {
+        if (cacheName.startsWith('performa-')) {
+          const cache = await caches.open(cacheName);
+          const requests = await cache.keys();
+          totalSize += requests.length * 1024; // Rough estimate
+        }
+      }
+      
+      return totalSize;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // Generate recommendations based on actual data
+  generateRecommendations(usage) {
+    const recommendations = [];
+    
+    if (usage.breakdown['Exercise Entries']?.count > 100) {
+      recommendations.push({
+        action: 'Archive Old Entries',
+        description: 'Move entries older than 90 days to archive',
+        estimatedSavings: this.formatBytes(usage.breakdown['Exercise Entries'].size * 0.3),
+        priority: 'medium'
+      });
+    }
+
+    if (usage.breakdown['Offline Cache']?.size > 10 * 1024 * 1024) {
+      recommendations.push({
+        action: 'Clear Cache',
+        description: 'Clear offline cache and re-download when needed',
+        estimatedSavings: this.formatBytes(usage.breakdown['Offline Cache'].size),
+        priority: 'low'
+      });
+    }
+
+    if (usage.total < 1024) {
+      recommendations.push({
+        action: 'No Action Needed',
+        description: 'Your app is using minimal storage',
+        estimatedSavings: '0 Bytes',
+        priority: 'info'
+      });
+    }
+
+    return recommendations;
+  }
+
   // Display memory usage data
-  displayMemoryUsage(data) {
+  async displayMemoryUsage(data) {
     this.memoryData = data;
 
     // Update total memory
     document.getElementById('totalMemoryUsage').textContent = data.totalFormatted;
 
-    // Update progress bar (assume 200MB as full scale)
-    const percentage = Math.min((data.total / (200 * 1024 * 1024)) * 100, 100);
-    document.querySelector('.memory-progress-fill').style.width = percentage + '%';
+    // Get and display storage quota
+    await this.updateStorageQuota(data.total);
 
     // Update status
     const status = this.getMemoryStatus(data.total);
@@ -583,18 +921,53 @@ class MemoryManager {
     this.displayRecommendations(data.recommendations);
   }
 
+  // Update storage quota display and progress bar
+  async updateStorageQuota(usedBytes) {
+    try {
+      if ('storage' in navigator && 'estimate' in navigator.storage) {
+        const estimate = await navigator.storage.estimate();
+        const quotaGB = (estimate.quota / (1024 * 1024 * 1024)).toFixed(1);
+        const usedGB = (usedBytes / (1024 * 1024 * 1024)).toFixed(2);
+        
+        document.getElementById('storageQuota').textContent = `${quotaGB} GB total`;
+        
+        // Update progress bar based on actual quota
+        const percentage = Math.min((usedBytes / estimate.quota) * 100, 100);
+        document.querySelector('.memory-progress-fill').style.width = percentage + '%';
+        
+        console.log(`📊 Storage: ${usedGB}GB used of ${quotaGB}GB available (${percentage.toFixed(1)}%)`);
+      } else {
+        document.getElementById('storageQuota').textContent = 'Unknown';
+        // Fallback to 1GB scale for progress bar
+        const percentage = Math.min((usedBytes / (1024 * 1024 * 1024)) * 100, 100);
+        document.querySelector('.memory-progress-fill').style.width = percentage + '%';
+      }
+    } catch (error) {
+      console.warn('Could not get storage quota:', error);
+      document.getElementById('storageQuota').textContent = 'Unknown';
+      // Fallback to 1GB scale for progress bar
+      const percentage = Math.min((usedBytes / (1024 * 1024 * 1024)) * 100, 100);
+      document.querySelector('.memory-progress-fill').style.width = percentage + '%';
+    }
+  }
+
   // Get memory status message
   getMemoryStatus(totalBytes) {
     const totalMB = totalBytes / (1024 * 1024);
+    const totalGB = totalMB / 1024;
     
-    if (totalMB < 10) {
-      return { message: '✅ Excellent - Memory usage is optimal', color: '#4CAF50' };
-    } else if (totalMB < 50) {
+    if (totalMB < 50) {
+      return { message: '✅ Excellent - Memory usage is minimal', color: '#4CAF50' };
+    } else if (totalMB < 250) {
       return { message: '👍 Good - Memory usage is reasonable', color: '#8BC34A' };
-    } else if (totalMB < 100) {
-      return { message: '⚠️ Moderate - Consider cleaning old data', color: '#FF9800' };
+    } else if (totalMB < 500) {
+      return { message: '📊 Normal - App is using moderate storage', color: '#2196F3' };
+    } else if (totalMB < 1000) {
+      return { message: '⚠️ Moderate - Consider cleaning old data if needed', color: '#FF9800' };
+    } else if (totalGB < 2) {
+      return { message: '📈 High usage - Still within normal limits', color: '#FF5722' };
     } else {
-      return { message: '🚨 High - Cleanup recommended to prevent slowdown', color: '#F44336' };
+      return { message: '🚨 Very High - Cleanup recommended for optimal performance', color: '#F44336' };
     }
   }
 
@@ -642,8 +1015,7 @@ class MemoryManager {
     const keepDays = parseInt(document.getElementById('keepDays').value);
     const maxEntries = parseInt(document.getElementById('maxEntries').value);
 
-    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
-      alert('Service worker not available');
+    if (!confirm(`This will keep the last ${keepDays} days and up to ${maxEntries} entries total. Continue?`)) {
       return;
     }
 
@@ -652,30 +1024,40 @@ class MemoryManager {
     document.getElementById('executeSmartCleanup').disabled = true;
 
     try {
-      const channel = new MessageChannel();
-      
-      channel.port1.onmessage = (event) => {
-        if (event.data.type === 'SMART_CLEANUP_COMPLETE') {
-          this.showCleanupResults(event.data.data, 'Smart Cleanup');
-          this.loadMemoryUsage(); // Refresh memory usage
-        } else if (event.data.type === 'SMART_CLEANUP_ERROR') {
-          alert('Cleanup failed: ' + event.data.error);
-        }
+      const allEntries = JSON.parse(localStorage.getItem('exerciseEntries') || '[]');
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - keepDays);
 
-        // Reset button
-        document.getElementById('executeSmartCleanup').textContent = 'Execute Smart Cleanup';
-        document.getElementById('executeSmartCleanup').disabled = false;
-      };
+      // Keep recent entries and limit total
+      const recentEntries = allEntries.filter(entry => new Date(entry.date) >= cutoffDate);
+      const finalEntries = recentEntries.slice(-maxEntries); // Keep last N entries
 
-      navigator.serviceWorker.controller.postMessage({
-        type: 'SMART_CLEANUP_ARCHIVE',
-        keepDays,
-        maxEntries
-      }, [channel.port2]);
+      const deletedCount = allEntries.length - finalEntries.length;
+      const deletedSize = new Blob([JSON.stringify(allEntries.slice(0, allEntries.length - finalEntries.length))]).size;
+
+      if (deletedCount > 0) {
+        localStorage.setItem('exerciseEntries', JSON.stringify(finalEntries));
+
+        // Show success
+        this.showCleanupResults({
+          deletedItems: deletedCount,
+          freedSpace: deletedSize,
+          type: 'Smart Cleanup'
+        }, 'Smart Cleanup');
+
+        // Refresh memory usage
+        this.loadMemoryUsage();
+      } else {
+        alert('No entries need to be cleaned up based on your criteria.');
+      }
+
+      // Reset button
+      document.getElementById('executeSmartCleanup').textContent = 'Execute Smart Cleanup';
+      document.getElementById('executeSmartCleanup').disabled = false;
 
     } catch (error) {
       console.error('Smart cleanup failed:', error);
-      alert('Smart cleanup failed');
+      alert('Smart cleanup failed: ' + error.message);
       
       // Reset button
       document.getElementById('executeSmartCleanup').textContent = 'Execute Smart Cleanup';
@@ -687,16 +1069,14 @@ class MemoryManager {
   async previewCustomCleanup() {
     const startDate = document.getElementById('cleanupStartDate').value;
     const endDate = document.getElementById('cleanupEndDate').value;
-    const dataTypes = Array.from(document.querySelectorAll('.data-type-selection input:checked'))
-      .map(cb => cb.value);
 
-    if (!startDate || !endDate || dataTypes.length === 0) {
-      alert('Please select date range and at least one data type');
+    if (!startDate || !endDate) {
+      alert('Please select both start and end dates');
       return;
     }
 
-    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
-      alert('Service worker not available');
+    if (new Date(startDate) > new Date(endDate)) {
+      alert('Start date must be before end date');
       return;
     }
 
@@ -705,33 +1085,34 @@ class MemoryManager {
     document.getElementById('cleanupPreview').style.display = 'block';
 
     try {
-      const channel = new MessageChannel();
+      // Get actual entries to be deleted
+      const entriesToDelete = this.getEntriesInDateRange(startDate, endDate);
+      const totalSize = new Blob([JSON.stringify(entriesToDelete)]).size;
       
-      channel.port1.onmessage = (event) => {
-        if (event.data.type === 'CLEANUP_ESTIMATE') {
-          const data = event.data.data;
-          document.getElementById('previewSize').textContent = 
-            `${data.totalItems} items (${data.totalSizeFormatted})`;
-          
-          // Enable execute button
-          document.getElementById('executeCustomCleanup').disabled = false;
-          
-          // Show safety warning for large cleanups
-          if (!data.safe) {
-            document.getElementById('previewSize').style.color = '#f44336';
-            document.getElementById('previewSize').textContent += ' ⚠️ Large cleanup';
-          }
-        } else if (event.data.type === 'CLEANUP_ESTIMATE_ERROR') {
-          document.getElementById('previewSize').textContent = 'Error calculating size';
-        }
-      };
-
-      navigator.serviceWorker.controller.postMessage({
-        type: 'ESTIMATE_CLEANUP_SIZE',
-        startDate,
-        endDate,
-        dataTypes
-      }, [channel.port2]);
+      // Show detailed preview
+      if (entriesToDelete.length === 0) {
+        document.getElementById('previewSize').textContent = 'No entries found in this date range';
+        document.getElementById('executeCustomCleanup').disabled = true;
+        return;
+      }
+      
+      let previewText = `${entriesToDelete.length} entries (${this.formatBytes(totalSize)})`;
+      
+      // Check if today's entries are included
+      const today = new Date().toDateString();
+      const todayEntries = entriesToDelete.filter(entry => 
+        new Date(entry.date).toDateString() === today
+      );
+      
+      if (todayEntries.length > 0) {
+        previewText += ` - includes ${todayEntries.length} from today`;
+        document.getElementById('previewSize').style.color = '#ff9800';
+      } else {
+        document.getElementById('previewSize').style.color = '#333';
+      }
+      
+      document.getElementById('previewSize').textContent = previewText;
+      document.getElementById('executeCustomCleanup').disabled = false;
 
     } catch (error) {
       console.error('Preview failed:', error);
@@ -739,19 +1120,37 @@ class MemoryManager {
     }
   }
 
+  // Get entries within date range
+  getEntriesInDateRange(startDate, endDate) {
+    try {
+      const allEntries = JSON.parse(localStorage.getItem('exerciseEntries') || '[]');
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // Include entire end date
+      
+      return allEntries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        return entryDate >= start && entryDate <= end;
+      });
+    } catch (e) {
+      console.error('Error getting entries in date range:', e);
+      return [];
+    }
+  }
+
   // Execute custom cleanup
   async executeCustomCleanup() {
     const startDate = document.getElementById('cleanupStartDate').value;
     const endDate = document.getElementById('cleanupEndDate').value;
-    const dataTypes = Array.from(document.querySelectorAll('.data-type-selection input:checked'))
-      .map(cb => cb.value);
 
-    if (!confirm('Are you sure you want to delete this data? This action cannot be undone.')) {
+    const entriesToDelete = this.getEntriesInDateRange(startDate, endDate);
+    
+    if (entriesToDelete.length === 0) {
+      alert('No entries found in the selected date range');
       return;
     }
 
-    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
-      alert('Service worker not available');
+    if (!confirm(`Are you sure you want to permanently delete ${entriesToDelete.length} entries? This action cannot be undone.`)) {
       return;
     }
 
@@ -760,31 +1159,35 @@ class MemoryManager {
     document.getElementById('executeCustomCleanup').disabled = true;
 
     try {
-      const channel = new MessageChannel();
-      
-      channel.port1.onmessage = (event) => {
-        if (event.data.type === 'DELETE_COMPLETE') {
-          this.showCleanupResults(event.data.data, 'Custom Cleanup');
-          this.loadMemoryUsage(); // Refresh memory usage
-        } else if (event.data.type === 'DELETE_ERROR') {
-          alert('Cleanup failed: ' + event.data.error);
-        }
+      // Delete entries from localStorage
+      const allEntries = JSON.parse(localStorage.getItem('exerciseEntries') || '[]');
+      const remainingEntries = allEntries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        return !(entryDate >= start && entryDate <= end);
+      });
 
-        // Reset button
-        document.getElementById('executeCustomCleanup').textContent = 'Execute Cleanup';
-        document.getElementById('executeCustomCleanup').disabled = true; // Keep disabled until new preview
-      };
+      localStorage.setItem('exerciseEntries', JSON.stringify(remainingEntries));
 
-      navigator.serviceWorker.controller.postMessage({
-        type: 'DELETE_DATA_BY_DATE_RANGE',
-        startDate,
-        endDate,
-        dataTypes
-      }, [channel.port2]);
+      // Show success
+      this.showCleanupResults({
+        deletedItems: entriesToDelete.length,
+        freedSpace: new Blob([JSON.stringify(entriesToDelete)]).size,
+        type: 'Custom Date Range'
+      }, 'Custom Cleanup');
+
+      // Refresh memory usage
+      this.loadMemoryUsage();
+
+      // Reset button
+      document.getElementById('executeCustomCleanup').textContent = 'Execute Cleanup';
+      document.getElementById('executeCustomCleanup').disabled = true;
 
     } catch (error) {
       console.error('Custom cleanup failed:', error);
-      alert('Custom cleanup failed');
+      alert('Custom cleanup failed: ' + error.message);
       
       // Reset button
       document.getElementById('executeCustomCleanup').textContent = 'Execute Cleanup';
@@ -828,15 +1231,6 @@ class MemoryManager {
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
-}
-
-// Initialize memory manager when DOM is loaded
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    new MemoryManager();
-  });
-} else {
-  new MemoryManager();
 }
 
 // Export for manual initialization
@@ -2750,8 +3144,52 @@ window.MemoryManager = MemoryManager;
           </p>
         </div>
       </div>
+      
+      <!-- Debug Section -->
+      <div class="settings-row" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+        <button onclick="initMemoryManagerManually()" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">🔧 Initialize Memory Manager</button>
+        <button onclick="checkMemoryManager()" style="margin-left: 10px; padding: 8px 16px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;">🔍 Check Status</button>
+      </div>
     </div>
   </div>
+
+  <script>
+  function initMemoryManagerManually() {
+    console.log('🔧 Manual Memory Manager initialization...');
+    try {
+      if (window.memoryManager) {
+        console.log('⚠️ Memory Manager already exists');
+        alert('Memory Manager already exists! Check console for details.');
+        return;
+      }
+      if (!window.MemoryManager) {
+        alert('MemoryManager class not found!');
+        return;
+      }
+      window.memoryManager = new window.MemoryManager();
+      console.log('✅ Memory Manager manually initialized');
+      alert('Memory Manager initialized! The Memory Management section should now appear in settings.');
+    } catch (error) {
+      console.error('❌ Failed to initialize Memory Manager:', error);
+      alert('Failed to initialize Memory Manager: ' + error.message);
+    }
+  }
+
+  function checkMemoryManager() {
+    const status = {
+      memoryManagerExists: !!window.memoryManager,
+      memoryManagerClass: !!window.MemoryManager,
+      settingsContainer: !!document.querySelector('#settingsView'),
+      serviceWorker: !!navigator.serviceWorker,
+      swController: !!navigator.serviceWorker?.controller
+    };
+    console.log('🔍 Memory Manager Status:', status);
+    alert('Check console for detailed status. Key info:\n' + 
+          'Memory Manager: ' + (status.memoryManagerExists ? '✅' : '❌') + '\n' +
+          'Settings Container: ' + (status.settingsContainer ? '✅' : '❌') + '\n' +
+          'Service Worker: ' + (status.swController ? '✅' : '❌'));
+  }
+  </script>
 
   <!-- Route View Modal -->
   <div id="routeView" style="display: none;">
@@ -11055,7 +11493,7 @@ function renderProgressChart(type = "total", from = null, to = null, exerciseNam
     });
   };
 }
-// Voice recognition
+// Voice recognition with proper cleanup
 function startVoiceRecognition() {
   if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
     alert("Your browser does not support speech recognition");
@@ -11069,6 +11507,11 @@ function startVoiceRecognition() {
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognizer = new SpeechRecognition();
+  
+  // Register for cleanup
+  if (window.memoryManager) {
+    window.memoryManager.registerVoiceRecognizer(recognizer);
+  }
   recognizer.continuous = true;
   recognizer.interimResults = false;
   recognizer.lang = "en-US";
@@ -11080,6 +11523,12 @@ function startVoiceRecognition() {
     // Play a subtle, short beep that won't interfere with voice feedback
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Register audio context for cleanup
+      if (window.memoryManager) {
+        window.memoryManager.registerAudioContext(audioContext);
+      }
+      
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -11092,6 +11541,18 @@ function startVoiceRecognition() {
       
       oscillator.start();
       oscillator.stop(audioContext.currentTime + 0.1); // Very short duration
+      
+      // Clean up audio context after use
+      setTimeout(() => {
+        try {
+          audioContext.close();
+          if (window.memoryManager) {
+            window.memoryManager.audioContexts.delete(audioContext);
+          }
+        } catch (e) {
+          console.warn('Error closing audio context:', e);
+        }
+      }, 200);
     } catch (error) {
       console.log('Audio context not available for beep');
     }
@@ -11134,11 +11595,11 @@ function startVoiceRecognition() {
         }
       } else if (transcript.includes(commands.setActualReps)) {
         const repsValue = transcript.split(commands.setActualReps)[1].trim();
-        const actualField = document.getElementById('actualValue');
-        if (actualField) {
-          actualField.value = repsValue;
-          speakFeedback(`${commands.setActualRepsFeedback} ${repsValue}`);
-        }
+          const actualField = window.getElement('actualValue');
+  if (actualField) {
+    actualField.value = repsValue;
+    speakFeedback(`${commands.setActualRepsFeedback} ${repsValue}`);
+  }
       } else if (transcript.includes(commands.showProgress)) {
         showProgressView();
         speakFeedback(`${commands.navigationFeedback} progress view`);
@@ -11225,6 +11686,14 @@ function stopVoiceRecognition() {
   if (recognizer) {
     try {
       recognizer.stop();
+      recognizer.abort(); // Ensure complete cleanup
+      
+      // Unregister from memory manager
+      if (window.memoryManager) {
+        window.memoryManager.voiceRecognizers.delete(recognizer);
+      }
+      
+      recognizer = null; // Clear reference
     } catch (err) {
       console.error('Error stopping speech recognition:', err);
     }
@@ -11234,8 +11703,8 @@ function stopVoiceRecognition() {
 }
 
 function updateVoiceStatus(text, state) {
-  const indicator = document.getElementById("voiceIndicator");
-  const statusText = document.getElementById("voiceStatusText");
+  const indicator = window.getElement("voiceIndicator");
+  const statusText = window.getElement("voiceStatusText");
   
   if (!indicator || !statusText) return;
   
@@ -12836,7 +13305,22 @@ class PerformaStorageManager {
 // Make storage manager globally available
 window.PerformaStorage = PerformaStorageManager;
 
+// Initialize memory manager for leak prevention after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  // Small delay to ensure all DOM elements are ready
+  setTimeout(() => {
+    window.memoryManager = new MemoryManager();
+    console.log('🧹 Memory Manager initialized');
+  }, 100);
+});
+
+// Utility function to get cached DOM elements
+window.getElement = (id) => {
+  return window.memoryManager ? window.memoryManager.getCachedElement(id) : document.getElementById(id);
+};
+
 console.log('💾 Enhanced data persistence system initialized');
+console.log('🧹 Memory management system initialized - leak prevention active');
 
 </script>
 </body>
