@@ -202,6 +202,7 @@ class MemoryManager {
 
   // Create the memory management UI
   createMemoryUI() {
+    console.log('🔧 Creating Memory Management UI...');
     const memorySection = document.createElement('div');
     memorySection.className = 'memory-management-section';
     memorySection.innerHTML = `
@@ -328,10 +329,13 @@ class MemoryManager {
     this.addMemoryStyles();
 
     // Find settings container and add memory section
-    const settingsContainer = document.querySelector('.settings-content') || document.querySelector('#settingsContent');
+    const settingsContainer = document.querySelector('#settingsView') || document.querySelector('.settings-content') || document.querySelector('#settingsContent');
     if (settingsContainer) {
       settingsContainer.appendChild(memorySection);
       this.bindEvents();
+      console.log('✅ Memory Management section added to settings');
+    } else {
+      console.error('❌ Settings container not found');
     }
   }
 
@@ -1016,15 +1020,6 @@ class MemoryManager {
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
-}
-
-// Initialize memory manager when DOM is loaded
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    new MemoryManager();
-  });
-} else {
-  new MemoryManager();
 }
 
 // Export for manual initialization
@@ -2938,8 +2933,52 @@ window.MemoryManager = MemoryManager;
           </p>
         </div>
       </div>
+      
+      <!-- Debug Section -->
+      <div class="settings-row" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+        <button onclick="initMemoryManagerManually()" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">🔧 Initialize Memory Manager</button>
+        <button onclick="checkMemoryManager()" style="margin-left: 10px; padding: 8px 16px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;">🔍 Check Status</button>
+      </div>
     </div>
   </div>
+
+  <script>
+  function initMemoryManagerManually() {
+    console.log('🔧 Manual Memory Manager initialization...');
+    try {
+      if (window.memoryManager) {
+        console.log('⚠️ Memory Manager already exists');
+        alert('Memory Manager already exists! Check console for details.');
+        return;
+      }
+      if (!window.MemoryManager) {
+        alert('MemoryManager class not found!');
+        return;
+      }
+      window.memoryManager = new window.MemoryManager();
+      console.log('✅ Memory Manager manually initialized');
+      alert('Memory Manager initialized! The Memory Management section should now appear in settings.');
+    } catch (error) {
+      console.error('❌ Failed to initialize Memory Manager:', error);
+      alert('Failed to initialize Memory Manager: ' + error.message);
+    }
+  }
+
+  function checkMemoryManager() {
+    const status = {
+      memoryManagerExists: !!window.memoryManager,
+      memoryManagerClass: !!window.MemoryManager,
+      settingsContainer: !!document.querySelector('#settingsView'),
+      serviceWorker: !!navigator.serviceWorker,
+      swController: !!navigator.serviceWorker?.controller
+    };
+    console.log('🔍 Memory Manager Status:', status);
+    alert('Check console for detailed status. Key info:\n' + 
+          'Memory Manager: ' + (status.memoryManagerExists ? '✅' : '❌') + '\n' +
+          'Settings Container: ' + (status.settingsContainer ? '✅' : '❌') + '\n' +
+          'Service Worker: ' + (status.swController ? '✅' : '❌'));
+  }
+  </script>
 
   <!-- Route View Modal -->
   <div id="routeView" style="display: none;">
@@ -13055,8 +13094,14 @@ class PerformaStorageManager {
 // Make storage manager globally available
 window.PerformaStorage = PerformaStorageManager;
 
-// Initialize memory manager for leak prevention
-window.memoryManager = new MemoryManager();
+// Initialize memory manager for leak prevention after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  // Small delay to ensure all DOM elements are ready
+  setTimeout(() => {
+    window.memoryManager = new MemoryManager();
+    console.log('🧹 Memory Manager initialized');
+  }, 100);
+});
 
 // Utility function to get cached DOM elements
 window.getElement = (id) => {
