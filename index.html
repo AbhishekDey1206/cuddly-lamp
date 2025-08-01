@@ -214,6 +214,10 @@ class MemoryManager {
             <span class="memory-label">Total App Size:</span>
             <span id="totalMemoryUsage" class="memory-value">Calculating...</span>
           </div>
+          <div class="memory-quota">
+            <span class="memory-label">Available Storage:</span>
+            <span id="storageQuota" class="memory-value">Checking...</span>
+          </div>
           <div id="memoryProgressBar" class="memory-progress-bar">
             <div class="memory-progress-fill"></div>
           </div>
@@ -354,11 +358,18 @@ class MemoryManager {
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
 
-      .memory-total {
+      .memory-total, .memory-quota {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 15px;
+      }
+
+      .memory-quota {
+        padding-top: 10px;
+        border-top: 1px solid #e0e0e0;
+        font-size: 0.9em;
+        color: #666;
       }
 
       .memory-label {
@@ -704,15 +715,14 @@ class MemoryManager {
   }
 
   // Display memory usage data
-  displayMemoryUsage(data) {
+  async displayMemoryUsage(data) {
     this.memoryData = data;
 
     // Update total memory
     document.getElementById('totalMemoryUsage').textContent = data.totalFormatted;
 
-    // Update progress bar (assume 200MB as full scale)
-    const percentage = Math.min((data.total / (200 * 1024 * 1024)) * 100, 100);
-    document.querySelector('.memory-progress-fill').style.width = percentage + '%';
+    // Get and display storage quota
+    await this.updateStorageQuota(data.total);
 
     // Update status
     const status = this.getMemoryStatus(data.total);
@@ -726,18 +736,53 @@ class MemoryManager {
     this.displayRecommendations(data.recommendations);
   }
 
+  // Update storage quota display and progress bar
+  async updateStorageQuota(usedBytes) {
+    try {
+      if ('storage' in navigator && 'estimate' in navigator.storage) {
+        const estimate = await navigator.storage.estimate();
+        const quotaGB = (estimate.quota / (1024 * 1024 * 1024)).toFixed(1);
+        const usedGB = (usedBytes / (1024 * 1024 * 1024)).toFixed(2);
+        
+        document.getElementById('storageQuota').textContent = `${quotaGB} GB total`;
+        
+        // Update progress bar based on actual quota
+        const percentage = Math.min((usedBytes / estimate.quota) * 100, 100);
+        document.querySelector('.memory-progress-fill').style.width = percentage + '%';
+        
+        console.log(`📊 Storage: ${usedGB}GB used of ${quotaGB}GB available (${percentage.toFixed(1)}%)`);
+      } else {
+        document.getElementById('storageQuota').textContent = 'Unknown';
+        // Fallback to 1GB scale for progress bar
+        const percentage = Math.min((usedBytes / (1024 * 1024 * 1024)) * 100, 100);
+        document.querySelector('.memory-progress-fill').style.width = percentage + '%';
+      }
+    } catch (error) {
+      console.warn('Could not get storage quota:', error);
+      document.getElementById('storageQuota').textContent = 'Unknown';
+      // Fallback to 1GB scale for progress bar
+      const percentage = Math.min((usedBytes / (1024 * 1024 * 1024)) * 100, 100);
+      document.querySelector('.memory-progress-fill').style.width = percentage + '%';
+    }
+  }
+
   // Get memory status message
   getMemoryStatus(totalBytes) {
     const totalMB = totalBytes / (1024 * 1024);
+    const totalGB = totalMB / 1024;
     
-    if (totalMB < 10) {
-      return { message: '✅ Excellent - Memory usage is optimal', color: '#4CAF50' };
-    } else if (totalMB < 50) {
+    if (totalMB < 50) {
+      return { message: '✅ Excellent - Memory usage is minimal', color: '#4CAF50' };
+    } else if (totalMB < 250) {
       return { message: '👍 Good - Memory usage is reasonable', color: '#8BC34A' };
-    } else if (totalMB < 100) {
-      return { message: '⚠️ Moderate - Consider cleaning old data', color: '#FF9800' };
+    } else if (totalMB < 500) {
+      return { message: '📊 Normal - App is using moderate storage', color: '#2196F3' };
+    } else if (totalMB < 1000) {
+      return { message: '⚠️ Moderate - Consider cleaning old data if needed', color: '#FF9800' };
+    } else if (totalGB < 2) {
+      return { message: '📈 High usage - Still within normal limits', color: '#FF5722' };
     } else {
-      return { message: '🚨 High - Cleanup recommended to prevent slowdown', color: '#F44336' };
+      return { message: '🚨 Very High - Cleanup recommended for optimal performance', color: '#F44336' };
     }
   }
 
