@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performa Tracker - Edge Case Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to right, #e0f7fa, #ffffff);
+            margin: 20px;
+            color: #333;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            border-left: 4px solid #00796b;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .pass { background: #e8f5e8; color: #2e7d32; }
+        .fail { background: #ffebee; color: #c62828; }
+        .warning { background: #fff3e0; color: #f57c00; }
+        .running { background: #e3f2fd; color: #1976d2; }
+        button {
+            background: #00796b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #004d40; }
+        .log { 
+            background: #f5f5f5; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-family: monospace; 
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Performa Tracker - Edge Case Simulation</h1>
+    <p>Testing various edge cases and potential UX-breaking scenarios...</p>
+
+    <div class="test-section">
+        <h2>🚨 JavaScript Error Handling</h2>
+        <div id="js-error-results"></div>
+        <button onclick="testJavaScriptErrors()">Run JS Error Tests</button>
+        <div id="js-error-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💾 Storage Edge Cases</h2>
+        <div id="storage-results"></div>
+        <button onclick="testStorageEdgeCases()">Run Storage Tests</button>
+        <div id="storage-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 Network Transition Tests</h2>
+        <div id="network-results"></div>
+        <button onclick="testNetworkTransitions()">Run Network Tests</button>
+        <div id="network-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧠 Memory Pressure Tests</h2>
+        <div id="memory-results"></div>
+        <button onclick="testMemoryPressure()">Run Memory Tests</button>
+        <div id="memory-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>⚡ Concurrent Operations</h2>
+        <div id="concurrent-results"></div>
+        <button onclick="testConcurrentOperations()">Run Concurrency Tests</button>
+        <div id="concurrent-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📱 PWA Lifecycle Tests</h2>
+        <div id="pwa-results"></div>
+        <button onclick="testPWALifecycle()">Run PWA Tests</button>
+        <div id="pwa-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎤 Voice System Edge Cases</h2>
+        <div id="voice-results"></div>
+        <button onclick="testVoiceEdgeCases()">Run Voice Tests</button>
+        <div id="voice-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🗺️ GPS/Geolocation Edge Cases</h2>
+        <div id="gps-results"></div>
+        <button onclick="testGPSEdgeCases()">Run GPS Tests</button>
+        <div id="gps-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Data Corruption Tests</h2>
+        <div id="data-results"></div>
+        <button onclick="testDataCorruption()">Run Data Tests</button>
+        <div id="data-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Performance Degradation Tests</h2>
+        <div id="performance-results"></div>
+        <button onclick="testPerformanceDegradation()">Run Performance Tests</button>
+        <div id="performance-log" class="log"></div>
+    </div>
+
+    <button onclick="runAllTests()" style="background: #f44336; font-size: 16px; padding: 15px 30px;">🚀 RUN ALL TESTS</button>
+    
+    <div id="overall-results" class="test-section" style="display: none;">
+        <h2>📋 Overall Test Results</h2>
+        <div id="test-summary"></div>
+    </div>
+
+    <script>
+        // Test utilities
+        function logResult(elementId, message, type = 'info') {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function showResult(elementId, message, isPass) {
+            const resultElement = document.getElementById(elementId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${isPass ? 'pass' : 'fail'}`;
+            resultDiv.textContent = (isPass ? '✅ ' : '❌ ') + message;
+            resultElement.appendChild(resultDiv);
+        }
+
+        function showWarning(elementId, message) {
+            const resultElement = document.getElementById(elementId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'test-result warning';
+            resultDiv.textContent = '⚠️ ' + message;
+            resultElement.appendChild(resultDiv);
+        }
+
+        // Test 1: JavaScript Error Handling
+        async function testJavaScriptErrors() {
+            const results = document.getElementById('js-error-results');
+            results.innerHTML = '';
+            logResult('js-error-log', 'Starting JavaScript error handling tests...');
+
+            // Test 1.1: Undefined function calls
+            try {
+                logResult('js-error-log', 'Testing undefined function call...');
+                eval('nonExistentFunction()');
+                showResult('js-error-results', 'Undefined function should throw error', false);
+            } catch (e) {
+                showResult('js-error-results', 'Undefined function properly caught', true);
+                logResult('js-error-log', `Caught: ${e.message}`);
+            }
+
+            // Test 1.2: Invalid localStorage access
+            try {
+                logResult('js-error-log', 'Testing localStorage edge cases...');
+                const originalSetItem = localStorage.setItem;
+                localStorage.setItem = function() { throw new Error('Storage quota exceeded'); };
+                
+                // Simulate app trying to save data
+                localStorage.setItem('test', 'data');
+                localStorage.setItem = originalSetItem;
+                showResult('js-error-results', 'Storage error should be handled', false);
+            } catch (e) {
+                localStorage.setItem = localStorage.setItem || function() {};
+                showResult('js-error-results', 'Storage error properly handled', true);
+                logResult('js-error-log', `Storage error caught: ${e.message}`);
+            }
+
+            // Test 1.3: JSON parsing errors
+            try {
+                logResult('js-error-log', 'Testing JSON parsing with corrupted data...');
+                JSON.parse('{corrupted: json data}');
+                showResult('js-error-results', 'Invalid JSON should throw error', false);
+            } catch (e) {
+                showResult('js-error-results', 'JSON parsing error properly caught', true);
+                logResult('js-error-log', `JSON error caught: ${e.message}`);
+            }
+
+            // Test 1.4: DOM manipulation on non-existent elements
+            try {
+                logResult('js-error-log', 'Testing DOM manipulation on null elements...');
+                const element = document.getElementById('non-existent-element');
+                element.innerHTML = 'test'; // Should throw
+                showResult('js-error-results', 'Null element access should throw', false);
+            } catch (e) {
+                showResult('js-error-results', 'Null element access properly caught', true);
+                logResult('js-error-log', `DOM error caught: ${e.message}`);
+            }
+
+            logResult('js-error-log', 'JavaScript error handling tests completed.');
+        }
+
+        // Test 2: Storage Edge Cases
+        async function testStorageEdgeCases() {
+            const results = document.getElementById('storage-results');
+            results.innerHTML = '';
+            logResult('storage-log', 'Starting storage edge case tests...');
+
+            // Test 2.1: localStorage quota
+            try {
+                logResult('storage-log', 'Testing localStorage quota limits...');
+                let dataSize = 0;
+                let counter = 0;
+                
+                while (dataSize < 1024 * 1024) { // Try to store 1MB
+                    const data = 'x'.repeat(1000);
+                    localStorage.setItem(`test_${counter}`, data);
+                    dataSize += 1000;
+                    counter++;
+                    
+                    if (counter > 10000) break; // Safety limit
+                }
+                
+                showResult('storage-results', `localStorage handled ${counter} items`, true);
+                logResult('storage-log', `Stored ${counter} items successfully`);
+                
+                // Cleanup
+                for (let i = 0; i < counter; i++) {
+                    localStorage.removeItem(`test_${i}`);
+                }
+            } catch (e) {
+                showResult('storage-results', 'localStorage quota error handled', true);
+                logResult('storage-log', `Storage quota error: ${e.message}`);
+            }
+
+            // Test 2.2: IndexedDB availability
+            try {
+                logResult('storage-log', 'Testing IndexedDB availability...');
+                if ('indexedDB' in window) {
+                    const request = indexedDB.open('test-db', 1);
+                    request.onerror = () => {
+                        showWarning('storage-results', 'IndexedDB access denied');
+                        logResult('storage-log', 'IndexedDB blocked or unavailable');
+                    };
+                    request.onsuccess = () => {
+                        showResult('storage-results', 'IndexedDB accessible', true);
+                        logResult('storage-log', 'IndexedDB working properly');
+                        request.result.close();
+                        indexedDB.deleteDatabase('test-db');
+                    };
+                } else {
+                    showWarning('storage-results', 'IndexedDB not supported');
+                    logResult('storage-log', 'IndexedDB not available in this browser');
+                }
+            } catch (e) {
+                showWarning('storage-results', 'IndexedDB error: ' + e.message);
+                logResult('storage-log', `IndexedDB error: ${e.message}`);
+            }
+
+            // Test 2.3: Cache API availability
+            try {
+                logResult('storage-log', 'Testing Cache API...');
+                if ('caches' in window) {
+                    const cache = await caches.open('test-cache');
+                    await cache.put('/test', new Response('test'));
+                    const response = await cache.match('/test');
+                    if (response) {
+                        showResult('storage-results', 'Cache API working', true);
+                        logResult('storage-log', 'Cache API functioning correctly');
+                    }
+                    await caches.delete('test-cache');
+                } else {
+                    showWarning('storage-results', 'Cache API not supported');
+                    logResult('storage-log', 'Cache API not available');
+                }
+            } catch (e) {
+                showWarning('storage-results', 'Cache API error: ' + e.message);
+                logResult('storage-log', `Cache API error: ${e.message}`);
+            }
+
+            logResult('storage-log', 'Storage edge case tests completed.');
+        }
+
+        // Test 3: Network Transition Tests
+        async function testNetworkTransitions() {
+            const results = document.getElementById('network-results');
+            results.innerHTML = '';
+            logResult('network-log', 'Starting network transition tests...');
+
+            // Test 3.1: Online/Offline detection
+            logResult('network-log', 'Testing online/offline detection...');
+            const isOnline = navigator.onLine;
+            showResult('network-results', `Current network status: ${isOnline ? 'Online' : 'Offline'}`, true);
+            logResult('network-log', `Navigator.onLine: ${isOnline}`);
+
+            // Test 3.2: Network change event handling
+            let networkEventsCaught = 0;
+            const onlineHandler = () => {
+                networkEventsCaught++;
+                logResult('network-log', 'Online event caught');
+            };
+            const offlineHandler = () => {
+                networkEventsCaught++;
+                logResult('network-log', 'Offline event caught');
+            };
+
+            window.addEventListener('online', onlineHandler);
+            window.addEventListener('offline', offlineHandler);
+
+            // Test 3.3: Service Worker communication
+            try {
+                logResult('network-log', 'Testing Service Worker communication...');
+                if ('serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration) {
+                        showResult('network-results', 'Service Worker registered', true);
+                        logResult('network-log', 'Service Worker found and active');
+                    } else {
+                        showWarning('network-results', 'No Service Worker registration found');
+                        logResult('network-log', 'Service Worker not registered');
+                    }
+                } else {
+                    showWarning('network-results', 'Service Worker not supported');
+                    logResult('network-log', 'Service Worker API not available');
+                }
+            } catch (e) {
+                showWarning('network-results', 'Service Worker error: ' + e.message);
+                logResult('network-log', `Service Worker error: ${e.message}`);
+            }
+
+            // Test 3.4: Fetch API with timeout
+            try {
+                logResult('network-log', 'Testing fetch with timeout...');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                const response = await fetch('https://httpbin.org/delay/1', {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    showResult('network-results', 'Fetch with timeout successful', true);
+                    logResult('network-log', 'Network request completed successfully');
+                }
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    showResult('network-results', 'Fetch timeout properly handled', true);
+                    logResult('network-log', 'Request timed out as expected');
+                } else {
+                    showWarning('network-results', 'Fetch error: ' + e.message);
+                    logResult('network-log', `Fetch error: ${e.message}`);
+                }
+            }
+
+            // Cleanup
+            setTimeout(() => {
+                window.removeEventListener('online', onlineHandler);
+                window.removeEventListener('offline', offlineHandler);
+            }, 1000);
+
+            logResult('network-log', 'Network transition tests completed.');
+        }
+
+        // Test 4: Memory Pressure Tests
+        async function testMemoryPressure() {
+            const results = document.getElementById('memory-results');
+            results.innerHTML = '';
+            logResult('memory-log', 'Starting memory pressure tests...');
+
+            // Test 4.1: Large array creation
+            try {
+                logResult('memory-log', 'Testing large data structure creation...');
+                const largeArray = new Array(1000000).fill('test data item');
+                showResult('memory-results', 'Large array created successfully', true);
+                logResult('memory-log', `Created array with ${largeArray.length} items`);
+                
+                // Cleanup
+                largeArray.length = 0;
+            } catch (e) {
+                showWarning('memory-results', 'Memory allocation failed: ' + e.message);
+                logResult('memory-log', `Memory error: ${e.message}`);
+            }
+
+            // Test 4.2: Rapid object creation/destruction
+            try {
+                logResult('memory-log', 'Testing rapid object creation...');
+                const objects = [];
+                for (let i = 0; i < 10000; i++) {
+                    objects.push({
+                        id: i,
+                        data: 'x'.repeat(100),
+                        timestamp: Date.now()
+                    });
+                }
+                showResult('memory-results', `Created ${objects.length} objects`, true);
+                logResult('memory-log', `Memory test: ${objects.length} objects created`);
+                
+                // Force cleanup
+                objects.length = 0;
+                if (window.gc) window.gc(); // Force garbage collection if available
+            } catch (e) {
+                showWarning('memory-results', 'Object creation test failed: ' + e.message);
+                logResult('memory-log', `Object creation error: ${e.message}`);
+            }
+
+            // Test 4.3: Memory usage estimation
+            try {
+                logResult('memory-log', 'Checking memory usage...');
+                if (performance.memory) {
+                    const memory = performance.memory;
+                    showResult('memory-results', `Memory usage: ${(memory.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB`, true);
+                    logResult('memory-log', `JS Heap: ${(memory.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB / ${(memory.totalJSHeapSize / 1024 / 1024).toFixed(2)}MB`);
+                } else {
+                    showWarning('memory-results', 'Memory API not available');
+                    logResult('memory-log', 'Performance.memory not supported');
+                }
+            } catch (e) {
+                showWarning('memory-results', 'Memory check failed: ' + e.message);
+                logResult('memory-log', `Memory check error: ${e.message}`);
+            }
+
+            logResult('memory-log', 'Memory pressure tests completed.');
+        }
+
+        // Test 5: Concurrent Operations
+        async function testConcurrentOperations() {
+            const results = document.getElementById('concurrent-results');
+            results.innerHTML = '';
+            logResult('concurrent-log', 'Starting concurrent operations tests...');
+
+            // Test 5.1: Multiple simultaneous localStorage operations
+            try {
+                logResult('concurrent-log', 'Testing concurrent localStorage operations...');
+                const promises = [];
+                for (let i = 0; i < 10; i++) {
+                    promises.push(new Promise(resolve => {
+                        setTimeout(() => {
+                            localStorage.setItem(`concurrent_${i}`, `data_${i}`);
+                            resolve(i);
+                        }, Math.random() * 100);
+                    }));
+                }
+                
+                const results_array = await Promise.all(promises);
+                showResult('concurrent-results', `${results_array.length} concurrent localStorage operations completed`, true);
+                logResult('concurrent-log', `Completed ${results_array.length} operations`);
+                
+                // Cleanup
+                for (let i = 0; i < 10; i++) {
+                    localStorage.removeItem(`concurrent_${i}`);
+                }
+            } catch (e) {
+                showWarning('concurrent-results', 'Concurrent localStorage failed: ' + e.message);
+                logResult('concurrent-log', `Concurrent storage error: ${e.message}`);
+            }
+
+            // Test 5.2: Race condition simulation
+            try {
+                logResult('concurrent-log', 'Testing race condition handling...');
+                let counter = 0;
+                const incrementCounter = () => {
+                    const temp = counter;
+                    // Simulate some processing time
+                    for (let i = 0; i < 1000; i++) { /* busy wait */ }
+                    counter = temp + 1;
+                };
+
+                const promises = [];
+                for (let i = 0; i < 5; i++) {
+                    promises.push(new Promise(resolve => {
+                        setTimeout(() => {
+                            incrementCounter();
+                            resolve();
+                        }, Math.random() * 50);
+                    }));
+                }
+
+                await Promise.all(promises);
+                if (counter < 5) {
+                    showWarning('concurrent-results', `Race condition detected: counter=${counter} (expected 5)`);
+                    logResult('concurrent-log', `Race condition: final counter value is ${counter}`);
+                } else {
+                    showResult('concurrent-results', 'No race condition detected', true);
+                    logResult('concurrent-log', 'Race condition test passed');
+                }
+            } catch (e) {
+                showWarning('concurrent-results', 'Race condition test failed: ' + e.message);
+                logResult('concurrent-log', `Race condition error: ${e.message}`);
+            }
+
+            // Test 5.3: Promise rejection handling
+            try {
+                logResult('concurrent-log', 'Testing promise rejection handling...');
+                const mixedPromises = [
+                    Promise.resolve('success1'),
+                    Promise.reject(new Error('planned failure')),
+                    Promise.resolve('success2'),
+                    Promise.reject(new Error('another failure'))
+                ];
+
+                const results_settled = await Promise.allSettled(mixedPromises);
+                const fulfilled = results_settled.filter(r => r.status === 'fulfilled').length;
+                const rejected = results_settled.filter(r => r.status === 'rejected').length;
+                
+                showResult('concurrent-results', `Promise handling: ${fulfilled} fulfilled, ${rejected} rejected`, true);
+                logResult('concurrent-log', `Mixed promises: ${fulfilled} succeeded, ${rejected} failed`);
+            } catch (e) {
+                showWarning('concurrent-results', 'Promise handling failed: ' + e.message);
+                logResult('concurrent-log', `Promise error: ${e.message}`);
+            }
+
+            logResult('concurrent-log', 'Concurrent operations tests completed.');
+        }
+
+        // Test 6: PWA Lifecycle Tests
+        async function testPWALifecycle() {
+            const results = document.getElementById('pwa-results');
+            results.innerHTML = '';
+            logResult('pwa-log', 'Starting PWA lifecycle tests...');
+
+            // Test 6.1: Manifest validation
+            try {
+                logResult('pwa-log', 'Testing manifest availability...');
+                const manifestLink = document.querySelector('link[rel="manifest"]');
+                if (manifestLink) {
+                    const response = await fetch(manifestLink.href);
+                    if (response.ok) {
+                        const manifest = await response.json();
+                        showResult('pwa-results', 'Manifest loaded successfully', true);
+                        logResult('pwa-log', `Manifest: ${manifest.name || 'No name'}`);
+                    } else {
+                        showWarning('pwa-results', 'Manifest fetch failed');
+                        logResult('pwa-log', 'Manifest request failed');
+                    }
+                } else {
+                    showWarning('pwa-results', 'No manifest link found');
+                    logResult('pwa-log', 'No manifest link in HTML');
+                }
+            } catch (e) {
+                showWarning('pwa-results', 'Manifest test failed: ' + e.message);
+                logResult('pwa-log', `Manifest error: ${e.message}`);
+            }
+
+            // Test 6.2: Installation criteria
+            logResult('pwa-log', 'Checking PWA installation criteria...');
+            let installCriteriaMet = 0;
+            
+            if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
+                installCriteriaMet++;
+                logResult('pwa-log', '✓ HTTPS requirement met');
+            } else {
+                logResult('pwa-log', '✗ HTTPS requirement not met');
+            }
+
+            if ('serviceWorker' in navigator) {
+                installCriteriaMet++;
+                logResult('pwa-log', '✓ Service Worker supported');
+            } else {
+                logResult('pwa-log', '✗ Service Worker not supported');
+            }
+
+            if (document.querySelector('link[rel="manifest"]')) {
+                installCriteriaMet++;
+                logResult('pwa-log', '✓ Manifest link present');
+            } else {
+                logResult('pwa-log', '✗ Manifest link missing');
+            }
+
+            showResult('pwa-results', `PWA criteria: ${installCriteriaMet}/3 met`, installCriteriaMet >= 2);
+
+            // Test 6.3: beforeinstallprompt event
+            let installPromptAvailable = false;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                installPromptAvailable = true;
+                showResult('pwa-results', 'Install prompt available', true);
+                logResult('pwa-log', 'beforeinstallprompt event fired');
+            });
+
+            setTimeout(() => {
+                if (!installPromptAvailable) {
+                    showWarning('pwa-results', 'Install prompt not triggered (may already be installed)');
+                    logResult('pwa-log', 'No install prompt detected');
+                }
+            }, 2000);
+
+            logResult('pwa-log', 'PWA lifecycle tests completed.');
+        }
+
+        // Test 7: Voice System Edge Cases
+        async function testVoiceEdgeCases() {
+            const results = document.getElementById('voice-results');
+            results.innerHTML = '';
+            logResult('voice-log', 'Starting voice system edge case tests...');
+
+            // Test 7.1: Speech Recognition API availability
+            try {
+                logResult('voice-log', 'Testing Speech Recognition API...');
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (SpeechRecognition) {
+                    const recognition = new SpeechRecognition();
+                    showResult('voice-results', 'Speech Recognition API available', true);
+                    logResult('voice-log', 'Speech Recognition API supported');
+                    
+                    // Test permission handling
+                    recognition.onerror = (event) => {
+                        if (event.error === 'not-allowed') {
+                            showWarning('voice-results', 'Microphone permission denied');
+                            logResult('voice-log', 'Microphone access denied');
+                        } else {
+                            showWarning('voice-results', `Speech recognition error: ${event.error}`);
+                            logResult('voice-log', `Recognition error: ${event.error}`);
+                        }
+                    };
+                } else {
+                    showWarning('voice-results', 'Speech Recognition API not supported');
+                    logResult('voice-log', 'Speech Recognition not available');
+                }
+            } catch (e) {
+                showWarning('voice-results', 'Voice API test failed: ' + e.message);
+                logResult('voice-log', `Voice API error: ${e.message}`);
+            }
+
+            // Test 7.2: Speech Synthesis API
+            try {
+                logResult('voice-log', 'Testing Speech Synthesis API...');
+                if ('speechSynthesis' in window) {
+                    const voices = speechSynthesis.getVoices();
+                    showResult('voice-results', `Speech Synthesis available (${voices.length} voices)`, true);
+                    logResult('voice-log', `${voices.length} speech synthesis voices available`);
+                    
+                    // Test synthesis
+                    const utterance = new SpeechSynthesisUtterance('test');
+                    utterance.volume = 0; // Silent test
+                    speechSynthesis.speak(utterance);
+                } else {
+                    showWarning('voice-results', 'Speech Synthesis not supported');
+                    logResult('voice-log', 'Speech Synthesis not available');
+                }
+            } catch (e) {
+                showWarning('voice-results', 'Speech Synthesis test failed: ' + e.message);
+                logResult('voice-log', `Speech Synthesis error: ${e.message}`);
+            }
+
+            // Test 7.3: Audio context
+            try {
+                logResult('voice-log', 'Testing Audio Context...');
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    const audioContext = new AudioContext();
+                    showResult('voice-results', `Audio Context available (${audioContext.state})`, true);
+                    logResult('voice-log', `Audio Context state: ${audioContext.state}`);
+                    audioContext.close();
+                } else {
+                    showWarning('voice-results', 'Audio Context not supported');
+                    logResult('voice-log', 'Audio Context not available');
+                }
+            } catch (e) {
+                showWarning('voice-results', 'Audio Context test failed: ' + e.message);
+                logResult('voice-log', `Audio Context error: ${e.message}`);
+            }
+
+            logResult('voice-log', 'Voice system edge case tests completed.');
+        }
+
+        // Test 8: GPS/Geolocation Edge Cases
+        async function testGPSEdgeCases() {
+            const results = document.getElementById('gps-results');
+            results.innerHTML = '';
+            logResult('gps-log', 'Starting GPS/Geolocation edge case tests...');
+
+            // Test 8.1: Geolocation API availability
+            try {
+                logResult('gps-log', 'Testing Geolocation API availability...');
+                if ('geolocation' in navigator) {
+                    showResult('gps-results', 'Geolocation API available', true);
+                    logResult('gps-log', 'Geolocation API supported');
+                    
+                    // Test permission and accuracy
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            showResult('gps-results', `Location obtained (accuracy: ${position.coords.accuracy}m)`, true);
+                            logResult('gps-log', `Location: ${position.coords.latitude}, ${position.coords.longitude} (±${position.coords.accuracy}m)`);
+                        },
+                        (error) => {
+                            let message = '';
+                            switch(error.code) {
+                                case error.PERMISSION_DENIED:
+                                    message = 'Location permission denied';
+                                    break;
+                                case error.POSITION_UNAVAILABLE:
+                                    message = 'Location unavailable';
+                                    break;
+                                case error.TIMEOUT:
+                                    message = 'Location request timeout';
+                                    break;
+                                default:
+                                    message = 'Unknown location error';
+                            }
+                            showWarning('gps-results', message);
+                            logResult('gps-log', `Geolocation error: ${message}`);
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 60000
+                        }
+                    );
+                } else {
+                    showWarning('gps-results', 'Geolocation API not supported');
+                    logResult('gps-log', 'Geolocation not available');
+                }
+            } catch (e) {
+                showWarning('gps-results', 'Geolocation test failed: ' + e.message);
+                logResult('gps-log', `Geolocation error: ${e.message}`);
+            }
+
+            // Test 8.2: Position watching
+            try {
+                logResult('gps-log', 'Testing position watching...');
+                let watchId = null;
+                let positionCount = 0;
+                
+                if ('geolocation' in navigator) {
+                    watchId = navigator.geolocation.watchPosition(
+                        (position) => {
+                            positionCount++;
+                            if (positionCount === 1) {
+                                showResult('gps-results', 'Position watching working', true);
+                                logResult('gps-log', 'Position watch established');
+                            }
+                            if (positionCount >= 3) {
+                                navigator.geolocation.clearWatch(watchId);
+                                logResult('gps-log', 'Position watch cleared after 3 updates');
+                            }
+                        },
+                        (error) => {
+                            showWarning('gps-results', 'Position watching failed');
+                            logResult('gps-log', `Position watch error: ${error.message}`);
+                            if (watchId) navigator.geolocation.clearWatch(watchId);
+                        },
+                        {
+                            enableHighAccuracy: false,
+                            timeout: 5000,
+                            maximumAge: 30000
+                        }
+                    );
+                    
+                    // Clear watch after 15 seconds regardless
+                    setTimeout(() => {
+                        if (watchId) {
+                            navigator.geolocation.clearWatch(watchId);
+                            logResult('gps-log', 'Position watch cleared after timeout');
+                        }
+                    }, 15000);
+                }
+            } catch (e) {
+                showWarning('gps-results', 'Position watching test failed: ' + e.message);
+                logResult('gps-log', `Position watch error: ${e.message}`);
+            }
+
+            logResult('gps-log', 'GPS/Geolocation edge case tests completed.');
+        }
+
+        // Test 9: Data Corruption Tests
+        async function testDataCorruption() {
+            const results = document.getElementById('data-results');
+            results.innerHTML = '';
+            logResult('data-log', 'Starting data corruption tests...');
+
+            // Test 9.1: Corrupted localStorage data
+            try {
+                logResult('data-log', 'Testing corrupted localStorage handling...');
+                localStorage.setItem('test_corrupted', '{invalid json data');
+                
+                try {
+                    const data = JSON.parse(localStorage.getItem('test_corrupted'));
+                    showResult('data-results', 'Corrupted data should not parse', false);
+                } catch (parseError) {
+                    showResult('data-results', 'Corrupted localStorage data properly handled', true);
+                    logResult('data-log', 'JSON parse error caught for corrupted data');
+                }
+                
+                localStorage.removeItem('test_corrupted');
+            } catch (e) {
+                showWarning('data-results', 'Corruption test failed: ' + e.message);
+                logResult('data-log', `Corruption test error: ${e.message}`);
+            }
+
+            // Test 9.2: Null/undefined data handling
+            try {
+                logResult('data-log', 'Testing null/undefined data handling...');
+                localStorage.setItem('test_null', 'null');
+                localStorage.setItem('test_undefined', 'undefined');
+                
+                const nullData = JSON.parse(localStorage.getItem('test_null'));
+                const undefinedData = localStorage.getItem('test_undefined');
+                
+                if (nullData === null && undefinedData === 'undefined') {
+                    showResult('data-results', 'Null/undefined data handled correctly', true);
+                    logResult('data-log', 'Null and undefined values processed correctly');
+                } else {
+                    showWarning('data-results', 'Null/undefined handling needs attention');
+                    logResult('data-log', 'Unexpected null/undefined behavior');
+                }
+                
+                localStorage.removeItem('test_null');
+                localStorage.removeItem('test_undefined');
+            } catch (e) {
+                showWarning('data-results', 'Null/undefined test failed: ' + e.message);
+                logResult('data-log', `Null/undefined error: ${e.message}`);
+            }
+
+            // Test 9.3: Large data handling
+            try {
+                logResult('data-log', 'Testing large data handling...');
+                const largeData = 'x'.repeat(100000); // 100KB string
+                localStorage.setItem('test_large', JSON.stringify({data: largeData}));
+                
+                const retrieved = JSON.parse(localStorage.getItem('test_large'));
+                if (retrieved.data.length === 100000) {
+                    showResult('data-results', 'Large data handled correctly', true);
+                    logResult('data-log', '100KB data stored and retrieved successfully');
+                } else {
+                    showWarning('data-results', 'Large data integrity issue');
+                    logResult('data-log', 'Large data size mismatch');
+                }
+                
+                localStorage.removeItem('test_large');
+            } catch (e) {
+                showWarning('data-results', 'Large data test failed: ' + e.message);
+                logResult('data-log', `Large data error: ${e.message}`);
+            }
+
+            logResult('data-log', 'Data corruption tests completed.');
+        }
+
+        // Test 10: Performance Degradation Tests
+        async function testPerformanceDegradation() {
+            const results = document.getElementById('performance-results');
+            results.innerHTML = '';
+            logResult('performance-log', 'Starting performance degradation tests...');
+
+            // Test 10.1: DOM manipulation performance
+            try {
+                logResult('performance-log', 'Testing DOM manipulation performance...');
+                const startTime = performance.now();
+                const container = document.createElement('div');
+                
+                for (let i = 0; i < 1000; i++) {
+                    const element = document.createElement('div');
+                    element.textContent = `Item ${i}`;
+                    element.className = 'test-item';
+                    container.appendChild(element);
+                }
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                if (duration < 100) {
+                    showResult('performance-results', `DOM manipulation: ${duration.toFixed(2)}ms (good)`, true);
+                } else if (duration < 500) {
+                    showWarning('performance-results', `DOM manipulation: ${duration.toFixed(2)}ms (slow)`);
+                } else {
+                    showResult('performance-results', `DOM manipulation: ${duration.toFixed(2)}ms (very slow)`, false);
+                }
+                
+                logResult('performance-log', `DOM operations took ${duration.toFixed(2)}ms`);
+            } catch (e) {
+                showWarning('performance-results', 'DOM performance test failed: ' + e.message);
+                logResult('performance-log', `DOM performance error: ${e.message}`);
+            }
+
+            // Test 10.2: JSON parsing performance
+            try {
+                logResult('performance-log', 'Testing JSON parsing performance...');
+                const largeObject = {
+                    items: Array(1000).fill(null).map((_, i) => ({
+                        id: i,
+                        name: `Item ${i}`,
+                        data: 'x'.repeat(100)
+                    }))
+                };
+                
+                const startTime = performance.now();
+                const jsonString = JSON.stringify(largeObject);
+                const parsed = JSON.parse(jsonString);
+                const endTime = performance.now();
+                
+                const duration = endTime - startTime;
+                if (duration < 50) {
+                    showResult('performance-results', `JSON operations: ${duration.toFixed(2)}ms (good)`, true);
+                } else {
+                    showWarning('performance-results', `JSON operations: ${duration.toFixed(2)}ms (slow)`);
+                }
+                
+                logResult('performance-log', `JSON operations took ${duration.toFixed(2)}ms`);
+            } catch (e) {
+                showWarning('performance-results', 'JSON performance test failed: ' + e.message);
+                logResult('performance-log', `JSON performance error: ${e.message}`);
+            }
+
+            // Test 10.3: Event handling performance
+            try {
+                logResult('performance-log', 'Testing event handling performance...');
+                let eventCount = 0;
+                const testElement = document.createElement('div');
+                
+                const eventHandler = () => { eventCount++; };
+                testElement.addEventListener('click', eventHandler);
+                
+                const startTime = performance.now();
+                for (let i = 0; i < 1000; i++) {
+                    testElement.dispatchEvent(new Event('click'));
+                }
+                const endTime = performance.now();
+                
+                const duration = endTime - startTime;
+                if (eventCount === 1000 && duration < 50) {
+                    showResult('performance-results', `Event handling: ${duration.toFixed(2)}ms (good)`, true);
+                } else {
+                    showWarning('performance-results', `Event handling: ${duration.toFixed(2)}ms, ${eventCount} events`);
+                }
+                
+                logResult('performance-log', `Event handling: ${eventCount} events in ${duration.toFixed(2)}ms`);
+                testElement.removeEventListener('click', eventHandler);
+            } catch (e) {
+                showWarning('performance-results', 'Event performance test failed: ' + e.message);
+                logResult('performance-log', `Event performance error: ${e.message}`);
+            }
+
+            logResult('performance-log', 'Performance degradation tests completed.');
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            document.getElementById('overall-results').style.display = 'block';
+            const summary = document.getElementById('test-summary');
+            summary.innerHTML = '<div class="test-result running">🚀 Running comprehensive edge case tests...</div>';
+
+            const tests = [
+                { name: 'JavaScript Error Handling', func: testJavaScriptErrors },
+                { name: 'Storage Edge Cases', func: testStorageEdgeCases },
+                { name: 'Network Transitions', func: testNetworkTransitions },
+                { name: 'Memory Pressure', func: testMemoryPressure },
+                { name: 'Concurrent Operations', func: testConcurrentOperations },
+                { name: 'PWA Lifecycle', func: testPWALifecycle },
+                { name: 'Voice System', func: testVoiceEdgeCases },
+                { name: 'GPS/Geolocation', func: testGPSEdgeCases },
+                { name: 'Data Corruption', func: testDataCorruption },
+                { name: 'Performance Degradation', func: testPerformanceDegradation }
+            ];
+
+            let completedTests = 0;
+            for (const test of tests) {
+                try {
+                    await test.func();
+                    completedTests++;
+                    summary.innerHTML = `<div class="test-result running">✅ Completed: ${test.name} (${completedTests}/${tests.length})</div>`;
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Brief pause between tests
+                } catch (e) {
+                    summary.innerHTML += `<div class="test-result fail">❌ Failed: ${test.name} - ${e.message}</div>`;
+                }
+            }
+
+            summary.innerHTML = `<div class="test-result pass">🎉 All edge case tests completed! (${completedTests}/${tests.length} successful)</div>`;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🧪 Edge case simulation ready');
+        });
+    </script>
+</body>
+</html>

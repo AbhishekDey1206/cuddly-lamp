@@ -1,0 +1,57 @@
+{
+  "timestamp": "2025-08-01T10:44:22.306Z",
+  "riskLevel": "HIGH",
+  "riskScore": 6,
+  "riskFactors": [
+    "Unmatched event listeners",
+    "Timer leaks",
+    "High DOM selector usage"
+  ],
+  "analysis": {
+    "eventListeners": {
+      "added": {
+        "click": 16,
+        "DOMContentLoaded": 6,
+        "message": 5,
+        "input": 3,
+        "change": 5,
+        "submit": 1,
+        "scroll": 1,
+        "mouseenter": 1,
+        "mouseleave": 1,
+        "load": 5,
+        "online": 3,
+        "offline": 3,
+        "beforeunload": 1,
+        "updatefound": 2,
+        "statechange": 2,
+        "controllerchange": 1,
+        "beforeinstallprompt": 1,
+        "appinstalled": 1
+      },
+      "removed": {
+        "message": 2,
+        "click": 2,
+        "input": 2,
+        "change": 2
+      },
+      "totalAdded": 58,
+      "totalRemoved": 8
+    },
+    "timers": {
+      "setTimeouts": 75,
+      "clearTimeouts": 6,
+      "setIntervals": 4,
+      "clearIntervals": 7
+    },
+    "domSelectors": {
+      "total": 513,
+      "details": {
+        "getElementById": 481,
+        "querySelector": 14,
+        "querySelectorAll": 18
+      }
+    },
+    "cleanupFunctions": 50
+  }
+}

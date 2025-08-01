@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-08-01T10:43:12.837Z",
+  "riskLevel": "MEDIUM",
+  "summary": {
+    "criticalIssues": 0,
+    "warnings": 5,
+    "passed": 15
+  },
+  "issues": [
+    {
+      "category": "Error Handling",
+      "description": "No unhandled promise rejection listeners",
+      "severity": "medium"
+    }
+  ],
+  "warnings": [
+    {
+      "category": "Memory",
+      "description": "58 addEventListener vs 8 removeEventListener calls"
+    },
+    {
+      "category": "Memory",
+      "description": "Potential timer leak: more setTimeout than clearTimeout calls"
+    },
+    {
+      "category": "Performance",
+      "description": "133 DOM manipulation operations detected"
+    },
+    {
+      "category": "Accessibility",
+      "description": "Only 1 ARIA labels found"
+    }
+  ],
+  "passes": [
+    {
+      "category": "Error Handling",
+      "description": "72 try-catch blocks found in main app"
+    },
+    {
+      "category": "Error Handling",
+      "description": "41 try-catch blocks found in service worker"
+    },
+    {
+      "category": "Error Handling",
+      "description": "Global error handling detected"
+    },
+    {
+      "category": "Storage",
+      "description": "localStorage usage with error handling patterns detected"
+    },
+    {
+      "category": "Storage",
+      "description": "IndexedDB with error handling detected"
+    },
+    {
+      "category": "Network",
+      "description": "Network status handling detected"
+    },
+    {
+      "category": "Network",
+      "description": "Fetch operations with error handling detected"
+    },
+    {
+      "category": "Voice",
+      "description": "Speech recognition with error handling detected"
+    },
+    {
+      "category": "Voice",
+      "description": "Both speech recognition and synthesis implemented"
+    },
+    {
+      "category": "GPS",
+      "description": "Geolocation with error handling detected"
+    },
+    {
+      "category": "PWA",
+      "description": "All required manifest fields present"
+    },
+    {
+      "category": "PWA",
+      "description": "Service worker registration with error handling"
+    },
+    {
+      "category": "Security",
+      "description": "Input validation patterns detected"
+    },
+    {
+      "category": "Security",
+      "description": "Dynamic HTML with protection patterns detected"
+    },
+    {
+      "category": "Accessibility",
+      "description": "4 alt attributes found"
+    }
+  ]
+}
